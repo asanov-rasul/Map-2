@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deniz Syyahat — Интерактивная карта маршрутов</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sand: #F2E8D9;
+    --sand-dark: #E8D9C0;
+    --desert: #C4A882;
+    --caramel: #A07850;
+    --terracotta: #C4633A;
+    --gold: #D4A847;
+    --deep: #1A2332;
+    --ink: #2C3E50;
+    --route-red: #D63B2F;
+    --marker-blue: #1B6CA8;
+    --marker-blue-glow: rgba(27,108,168,0.4);
+    --velayat-stroke: #8B7355;
+    --bg: #0F1923;
+    --panel-bg: rgba(15,25,35,0.92);
+    --text-light: #F2E8D9;
+    --text-muted: #8B9DAD;
+  }
+
+- { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+font-family: ‘Manrope’, sans-serif;
+background: var(–bg);
+color: var(–text-light);
+min-height: 100vh;
+overflow-x: hidden;
+}
+
+/* HEADER */
+header {
+position: relative;
+z-index: 10;
+padding: 20px 40px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+border-bottom: 1px solid rgba(196,168,130,0.2);
+background: rgba(10,16,24,0.8);
+backdrop-filter: blur(12px);
+}
+
+.logo {
+display: flex;
+align-items: center;
+gap: 14px;
+}
+
+.logo-icon {
+width: 42px;
+height: 42px;
+background: linear-gradient(135deg, var(–gold), var(–terracotta));
+border-radius: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 22px;
+}
+
+.logo-text {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 26px;
+font-weight: 600;
+letter-spacing: 0.02em;
+line-height: 1;
+color: var(–sand);
+}
+
+.logo-sub {
+font-size: 10px;
+font-weight: 300;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+color: var(–desert);
+display: block;
+margin-top: 2px;
+}
+
+.header-hint {
+font-size: 13px;
+color: var(–text-muted);
+font-weight: 300;
+letter-spacing: 0.03em;
+}
+
+/* MAIN LAYOUT */
+.main-layout {
+display: grid;
+grid-template-columns: 1fr 340px;
+height: calc(100vh - 82px);
+}
+
+/* MAP AREA */
+.map-area {
+position: relative;
+overflow: hidden;
+background: radial-gradient(ellipse at 40% 50%, #162033 0%, #0A1018 70%);
+}
+
+.map-area::before {
+content: ‘’;
+position: absolute;
+inset: 0;
+background:
+radial-gradient(circle at 20% 30%, rgba(196,168,130,0.04) 0%, transparent 50%),
+radial-gradient(circle at 80% 70%, rgba(212,168,71,0.03) 0%, transparent 50%);
+pointer-events: none;
+}
+
+#map-svg {
+width: 100%;
+height: 100%;
+display: block;
+cursor: default;
+}
+
+/* Velayat regions */
+.velayat {
+fill: #1E3045;
+stroke: var(–velayat-stroke);
+stroke-width: 1.5;
+stroke-linejoin: round;
+transition: fill 0.3s ease;
+cursor: default;
+}
+
+.velayat:hover { fill: #243850; }
+
+.velayat-label {
+fill: rgba(196,168,130,0.5);
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 14px;
+font-weight: 600;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+pointer-events: none;
+user-select: none;
+}
+
+/* Route line */
+.route-line {
+fill: none;
+stroke: var(–route-red);
+stroke-width: 2.5;
+stroke-linecap: round;
+stroke-linejoin: round;
+stroke-dasharray: 2000;
+stroke-dashoffset: 2000;
+filter: drop-shadow(0 0 4px rgba(214,59,47,0.6));
+pointer-events: none;
+transition: stroke-dashoffset 0.8s ease;
+}
+
+.route-line.animated { animation: drawLine 0.8s ease forwards; }
+
+@keyframes drawLine {
+to { stroke-dashoffset: 0; }
+}
+
+/* Attraction markers */
+.attraction-group { cursor: pointer; }
+
+.marker-bg {
+fill: var(–marker-blue);
+r: 7;
+transition: r 0.2s ease, fill 0.2s ease;
+filter: drop-shadow(0 0 6px var(–marker-blue-glow));
+}
+
+.attraction-group:hover .marker-bg {
+r: 10;
+fill: #2A8FD4;
+filter: drop-shadow(0 0 12px rgba(27,108,168,0.7));
+}
+
+.marker-bg.active {
+fill: #fff !important;
+stroke: var(–marker-blue);
+stroke-width: 2.5;
+r: 9 !important;
+filter: drop-shadow(0 0 10px rgba(27,108,168,0.8)) !important;
+}
+
+.marker-number {
+fill: var(–marker-blue);
+font-family: ‘Manrope’, sans-serif;
+font-size: 9px;
+font-weight: 700;
+text-anchor: middle;
+dominant-baseline: central;
+pointer-events: none;
+opacity: 0;
+transition: opacity 0.2s;
+}
+
+.marker-number.visible { opacity: 1; }
+
+/* TOOLTIP */
+.tooltip {
+position: absolute;
+pointer-events: none;
+opacity: 0;
+transition: opacity 0.2s ease, transform 0.2s ease;
+transform: translateY(4px);
+z-index: 50;
+min-width: 160px;
+}
+
+.tooltip.visible {
+opacity: 1;
+transform: translateY(0);
+}
+
+.tooltip-inner {
+background: rgba(10,16,24,0.95);
+border: 1px solid rgba(196,168,130,0.3);
+border-radius: 10px;
+padding: 10px 14px;
+backdrop-filter: blur(16px);
+box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+white-space: nowrap;
+}
+
+.tooltip-region {
+font-size: 9px;
+font-weight: 500;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: var(–gold);
+margin-bottom: 4px;
+}
+
+.tooltip-name {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 15px;
+font-weight: 600;
+color: var(–sand);
+white-space: normal;
+max-width: 180px;
+line-height: 1.3;
+}
+
+.tooltip-hint {
+font-size: 10px;
+color: var(–text-muted);
+margin-top: 6px;
+}
+
+.tooltip-arrow {
+width: 12px;
+height: 7px;
+background: rgba(10,16,24,0.95);
+clip-path: polygon(0 0, 100% 0, 50% 100%);
+border-bottom: 1px solid rgba(196,168,130,0.3);
+margin: 0 auto;
+}
+
+/* SIDE PANEL */
+.side-panel {
+background: var(–panel-bg);
+border-left: 1px solid rgba(196,168,130,0.15);
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+
+.panel-header {
+padding: 24px 24px 16px;
+border-bottom: 1px solid rgba(196,168,130,0.12);
+}
+
+.panel-title {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 20px;
+font-weight: 600;
+color: var(–sand);
+margin-bottom: 6px;
+}
+
+.panel-desc {
+font-size: 12px;
+color: var(–text-muted);
+line-height: 1.6;
+font-weight: 300;
+}
+
+.route-list {
+flex: 1;
+overflow-y: auto;
+padding: 16px;
+scrollbar-width: thin;
+scrollbar-color: rgba(196,168,130,0.2) transparent;
+}
+
+.route-empty {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+height: 180px;
+gap: 12px;
+color: var(–text-muted);
+text-align: center;
+}
+
+.route-empty-icon { font-size: 36px; opacity: 0.4; }
+
+.route-empty-text {
+font-size: 13px;
+font-weight: 300;
+line-height: 1.6;
+max-width: 200px;
+}
+
+.route-item {
+display: flex;
+align-items: flex-start;
+gap: 12px;
+padding: 12px;
+border-radius: 8px;
+margin-bottom: 6px;
+background: rgba(255,255,255,0.03);
+border: 1px solid rgba(196,168,130,0.08);
+animation: slideIn 0.3s ease;
+transition: background 0.2s;
+}
+
+@keyframes slideIn {
+from { opacity: 0; transform: translateX(12px); }
+to { opacity: 1; transform: translateX(0); }
+}
+
+.route-item:hover { background: rgba(255,255,255,0.06); }
+
+.route-num {
+width: 24px;
+height: 24px;
+border-radius: 50%;
+background: var(–marker-blue);
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 11px;
+font-weight: 700;
+color: #fff;
+flex-shrink: 0;
+margin-top: 1px;
+}
+
+.route-info { flex: 1; min-width: 0; }
+
+.route-name {
+font-size: 14px;
+font-weight: 500;
+color: var(–sand);
+line-height: 1.3;
+margin-bottom: 2px;
+}
+
+.route-region {
+font-size: 10px;
+color: var(–gold);
+letter-spacing: 0.08em;
+text-transform: uppercase;
+font-weight: 500;
+}
+
+.route-remove {
+background: none;
+border: none;
+color: var(–text-muted);
+cursor: pointer;
+font-size: 16px;
+padding: 2px 4px;
+border-radius: 4px;
+transition: color 0.2s, background 0.2s;
+line-height: 1;
+flex-shrink: 0;
+}
+
+.route-remove:hover { color: var(–terracotta); background: rgba(196,99,58,0.15); }
+
+/* Connector between items */
+.route-connector {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 0 12px;
+margin-bottom: 6px;
+color: var(–route-red);
+font-size: 11px;
+}
+
+.route-connector-line {
+flex: 1;
+height: 1px;
+background: linear-gradient(90deg, var(–route-red), rgba(214,59,47,0.2));
+}
+
+/* Panel footer */
+.panel-footer {
+padding: 16px;
+border-top: 1px solid rgba(196,168,130,0.12);
+display: flex;
+flex-direction: column;
+gap: 10px;
+}
+
+.stat-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+
+.stat-label { font-size: 12px; color: var(–text-muted); font-weight: 300; }
+.stat-value { font-size: 14px; color: var(–sand); font-weight: 600; }
+
+.btn-primary {
+width: 100%;
+padding: 13px;
+border: none;
+border-radius: 8px;
+background: linear-gradient(135deg, var(–marker-blue), #1556A0);
+color: #fff;
+font-family: ‘Manrope’, sans-serif;
+font-size: 13px;
+font-weight: 600;
+letter-spacing: 0.05em;
+cursor: pointer;
+transition: all 0.3s ease;
+box-shadow: 0 4px 16px rgba(27,108,168,0.3);
+}
+
+.btn-primary:hover {
+transform: translateY(-1px);
+box-shadow: 0 6px 20px rgba(27,108,168,0.5);
+}
+
+.btn-primary:disabled {
+opacity: 0.35;
+cursor: not-allowed;
+transform: none;
+box-shadow: none;
+}
+
+.btn-secondary {
+width: 100%;
+padding: 10px;
+border: 1px solid rgba(196,99,58,0.4);
+border-radius: 8px;
+background: transparent;
+color: var(–terracotta);
+font-family: ‘Manrope’, sans-serif;
+font-size: 12px;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.btn-secondary:hover { background: rgba(196,99,58,0.1); }
+.btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Legend */
+.legend {
+position: absolute;
+bottom: 20px;
+left: 20px;
+background: rgba(10,16,24,0.85);
+border: 1px solid rgba(196,168,130,0.2);
+border-radius: 10px;
+padding: 14px 16px;
+backdrop-filter: blur(12px);
+z-index: 10;
+}
+
+.legend-title {
+font-size: 9px;
+letter-spacing: 0.14em;
+text-transform: uppercase;
+color: var(–text-muted);
+margin-bottom: 10px;
+font-weight: 500;
+}
+
+.legend-item {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-bottom: 6px;
+font-size: 11px;
+color: var(–sand);
+font-weight: 300;
+}
+
+.legend-dot {
+width: 10px;
+height: 10px;
+border-radius: 50%;
+background: var(–marker-blue);
+flex-shrink: 0;
+}
+
+.legend-dot.active {
+background: #fff;
+border: 2px solid var(–marker-blue);
+}
+
+.legend-line {
+width: 20px;
+height: 2.5px;
+background: var(–route-red);
+border-radius: 2px;
+flex-shrink: 0;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+.main-layout { grid-template-columns: 1fr; grid-template-rows: 1fr 280px; }
+.side-panel { border-left: none; border-top: 1px solid rgba(196,168,130,0.15); }
+header { padding: 14px 20px; }
+.logo-text { font-size: 20px; }
+.header-hint { display: none; }
+.legend { bottom: 295px; }
+}
+
+/* Number labels on map */
+.step-label {
+font-family: ‘Manrope’, sans-serif;
+font-size: 9px;
+font-weight: 700;
+fill: var(–marker-blue);
+text-anchor: middle;
+dominant-baseline: central;
+pointer-events: none;
+}
+
+/* Pulse animation for active */
+@keyframes pulse {
+0% { r: 9; opacity: 0.6; }
+50% { r: 16; opacity: 0; }
+100% { r: 9; opacity: 0; }
+}
+
+.pulse-ring {
+fill: none;
+stroke: var(–marker-blue);
+stroke-width: 1.5;
+animation: pulseSVG 2s infinite;
+pointer-events: none;
+}
+
+@keyframes pulseSVG {
+0% { r: 10; opacity: 0.8; stroke-opacity: 0.8; }
+100% { r: 22; opacity: 0; stroke-opacity: 0; }
+}
+</style>
+
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⛵</div>
+    <div class="logo-text">
+      Deniz Syyahat
+      <span class="logo-sub">Туристические маршруты</span>
+    </div>
+  </div>
+  <div class="header-hint">Кликните на достопримечательность, чтобы добавить в маршрут</div>
+</header>
+
+<div class="main-layout">
+  <div class="map-area" id="mapArea">
+    <svg id="map-svg" viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <linearGradient id="routeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#D63B2F;stop-opacity:1"/>
+          <stop offset="100%" style="stop-color:#E8624A;stop-opacity:1"/>
+        </linearGradient>
+        <filter id="markerGlow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+```
+  <!-- BALKAN VELAYAT (west) -->
+  <path class="velayat" id="v-balkan"
+    d="M 30,60 L 80,40 L 140,30 L 180,50 L 200,90 L 220,120 L 240,150 L 255,180 L 260,220 L 250,260 L 240,300 L 230,340 L 215,370 L 200,400 L 185,430 L 170,460 L 150,480 L 120,490 L 80,480 L 50,460 L 30,430 L 20,400 L 15,360 L 10,320 L 15,280 L 20,240 L 20,200 L 20,160 L 25,120 L 30,90 Z"/>
+
+  <!-- AHAL VELAYAT (center) -->
+  <path class="velayat" id="v-ahal"
+    d="M 255,180 L 260,220 L 250,260 L 245,300 L 240,340 L 235,380 L 230,420 L 225,450 L 220,480 L 240,490 L 280,495 L 330,490 L 380,485 L 430,480 L 450,470 L 460,450 L 470,420 L 475,390 L 470,360 L 455,330 L 440,300 L 430,270 L 420,240 L 400,210 L 380,185 L 355,165 L 330,150 L 305,145 L 280,148 L 260,158 Z"/>
+
+  <!-- ASHGABAT (city, highlighted) -->
+  <path class="velayat" id="v-ashgabat" style="fill:#253545;"
+    d="M 305,330 L 330,325 L 355,330 L 370,350 L 365,375 L 345,385 L 320,385 L 300,375 L 295,355 Z"/>
+
+  <!-- MARY VELAYAT (center-east bottom) -->
+  <path class="velayat" id="v-mary"
+    d="M 430,240 L 440,300 L 455,330 L 470,360 L 475,390 L 470,420 L 465,450 L 460,480 L 500,490 L 550,495 L 600,490 L 640,480 L 660,460 L 670,430 L 665,400 L 650,370 L 635,340 L 620,310 L 600,285 L 575,265 L 550,250 L 525,242 L 500,240 L 475,238 Z"/>
+
+  <!-- DASHOGUZ VELAYAT (north) -->
+  <path class="velayat" id="v-dashoguz"
+    d="M 260,158 L 280,148 L 305,145 L 340,138 L 380,130 L 420,125 L 460,122 L 500,120 L 540,118 L 570,120 L 600,125 L 620,115 L 640,100 L 650,80 L 640,55 L 615,40 L 580,30 L 540,25 L 500,22 L 460,25 L 420,30 L 380,38 L 340,50 L 310,65 L 290,80 L 275,100 L 265,125 Z"/>
+
+  <!-- LEBAP VELAYAT (east) -->
+  <path class="velayat" id="v-lebap"
+    d="M 570,120 L 600,125 L 620,115 L 650,80 L 660,50 L 680,30 L 720,20 L 760,15 L 800,20 L 840,35 L 870,55 L 885,85 L 880,120 L 870,155 L 855,185 L 840,215 L 820,245 L 800,275 L 780,305 L 760,330 L 740,350 L 720,365 L 700,370 L 680,360 L 665,340 L 650,310 L 635,280 L 618,255 L 598,235 L 575,220 L 555,215 L 540,220 L 530,235 L 520,248 L 505,252 L 490,248 L 470,238 L 475,220 L 480,200 L 490,180 L 510,160 L 535,142 L 558,130 Z"/>
+
+  <!-- Velayat labels -->
+  <text class="velayat-label" x="115" y="260" transform="rotate(-10,115,260)">Балкан</text>
+  <text class="velayat-label" x="330" y="420" transform="rotate(-5,330,420)">Ахал</text>
+  <text class="velayat-label" x="555" y="390" transform="rotate(-3,555,390)">Мары</text>
+  <text class="velayat-label" x="420" y="90">Дашогуз</text>
+  <text class="velayat-label" x="730" y="220" transform="rotate(15,730,220)">Лебап</text>
+  <text class="velayat-label" style="fill:rgba(212,168,71,0.7);font-size:11px;" x="296" y="365">Ашхабад</text>
+
+  <!-- Route path (will be updated by JS) -->
+  <path id="routePath" class="route-line" d=""/>
+
+  <!-- Attraction markers group (rendered by JS) -->
+  <g id="markersGroup"></g>
+</svg>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-inner">
+    <div class="tooltip-region" id="ttRegion"></div>
+    <div class="tooltip-name" id="ttName"></div>
+    <div class="tooltip-hint" id="ttHint"></div>
+  </div>
+  <div class="tooltip-arrow"></div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-title">Легенда</div>
+  <div class="legend-item"><div class="legend-dot"></div>Достопримечательность</div>
+  <div class="legend-item"><div class="legend-dot active"></div>Выбрано</div>
+  <div class="legend-item"><div class="legend-line"></div>Маршрут</div>
+</div>
+```
+
+  </div>
+
+  <!-- SIDE PANEL -->
+
+  <div class="side-panel">
+    <div class="panel-header">
+      <div class="panel-title">Ваш маршрут</div>
+      <div class="panel-desc">Выбирайте достопримечательности на карте — они появятся здесь в хронологическом порядке.</div>
+    </div>
+
+```
+<div class="route-list" id="routeList">
+  <div class="route-empty" id="routeEmpty">
+    <div class="route-empty-icon">🗺️</div>
+    <div class="route-empty-text">Кликните на синие маркеры на карте, чтобы начать составлять маршрут</div>
+  </div>
+</div>
+
+<div class="panel-footer">
+  <div class="stat-row">
+    <span class="stat-label">Выбрано локаций</span>
+    <span class="stat-value" id="countStat">0</span>
+  </div>
+  <div class="stat-row">
+    <span class="stat-label">Велаятов</span>
+    <span class="stat-value" id="regionStat">0</span>
+  </div>
+  <button class="btn-primary" id="btnBook" disabled>Забронировать маршрут →</button>
+  <button class="btn-secondary" id="btnClear" disabled>Очистить маршрут</button>
+</div>
+```
+
+  </div>
+</div>
+
+<script>
+const ATTRACTIONS = [
+  // Ашхабад
+  { id: 'ash1', name: 'Монумент Нейтралитета', region: 'Ашхабад', x: 310, y: 355, hint: 'Символ нейтралитета Туркменистана' },
+  { id: 'ash2', name: 'Монумент Независимости', region: 'Ашхабад', x: 328, y: 362, hint: 'Высота 95 метров' },
+  { id: 'ash3', name: 'Алем', region: 'Ашхабад', x: 320, y: 345, hint: 'Крупнейший крытый колесо обозрения' },
+  { id: 'ash4', name: 'Национальный музей', region: 'Ашхабад', x: 338, y: 348, hint: '40 000+ экспонатов' },
+  { id: 'ash5', name: 'Багт кошги', region: 'Ашхабад', x: 315, y: 370, hint: 'Дворец бракосочетаний' },
+  { id: 'ash6', name: 'Мечеть Эртогрул Газы', region: 'Ашхабад', x: 332, y: 374, hint: 'Турецкая мечеть' },
+  { id: 'ash7', name: 'Парк Ашхабад', region: 'Ашхабад', x: 348, y: 365, hint: 'Центральный парк столицы' },
+  { id: 'ash8', name: 'Ниса', region: 'Ашхабад', x: 295, y: 350, hint: 'Парфянская крепость, UNESCO' },
+
+  // Ахалский велаят
+  { id: 'ahl1', name: 'Дарваза', region: 'Ахалский велаят', x: 310, y: 240, hint: '"Врата в ад" — горящий кратер' },
+  { id: 'ahl2', name: 'Ков-Ата', region: 'Ахалский велаят', x: 345, y: 280, hint: 'Подземное серное озеро' },
+  { id: 'ahl3', name: 'Мечеть Туркменбаши Рухы', region: 'Ахалский велаят', x: 375, y: 295, hint: 'Крупнейшая мечеть страны' },
+  { id: 'ahl4', name: 'Конный комплекс Ахалтекинец', region: 'Ахалский велаят', x: 395, y: 315, hint: 'Легендарная порода лошадей' },
+
+  // Марыйский велаят
+  { id: 'mry1', name: 'Древний Мерв', region: 'Марыйский велаят', x: 560, y: 380, hint: 'Один из древнейших городов мира' },
+  { id: 'mry2', name: 'Мавзолей Султана Санджара', region: 'Марыйский велаят', x: 582, y: 365, hint: 'XII век, шедевр архитектуры' },
+  { id: 'mry3', name: 'Гяур-Кала', region: 'Марыйский велаят', x: 545, y: 395, hint: 'Городище Александрийской эпохи' },
+
+  // Балканский велаят
+  { id: 'blk1', name: 'Янгыкала', region: 'Балканский велаят', x: 100, y: 180, hint: 'Каньон цветных скал' },
+  { id: 'blk2', name: 'Каньон Янгысув', region: 'Балканский велаят', x: 115, y: 200, hint: 'Пещеры с горячими источниками' },
+  { id: 'blk3', name: 'Аваза', region: 'Балканский велаят', x: 55, y: 280, hint: 'Курортная зона на Каспии' },
+  { id: 'blk4', name: 'Гозли-Ата', region: 'Балканский велаят', x: 90, y: 310, hint: 'Сакральный некрополь XV в.' },
+
+  // Дашогузский велаят
+  { id: 'dsh1', name: 'Куня-Ургенч', region: 'Дашогузский велаят', x: 400, y: 80, hint: 'Древняя столица Хорезма, UNESCO' },
+  { id: 'dsh2', name: 'Минарет Кутлуг-Тимура', region: 'Дашогузский велаят', x: 420, y: 65, hint: 'Самый высокий минарет Средней Азии' },
+  { id: 'dsh3', name: 'Мавзолей Тюрабек-ханым', region: 'Дашогузский велаят', x: 440, y: 78, hint: 'XIV век, уникальная мозаика' },
+
+  // Лебапский велаят
+  { id: 'lbp1', name: 'Древний Амуль', region: 'Лебапский велаят', x: 710, y: 245, hint: 'Исторический центр на Амударье' },
+  { id: 'lbp2', name: 'Пещера Койтендаг', region: 'Лебапский велаят', x: 780, y: 290, hint: 'Сталактитовые пещеры' },
+  { id: 'lbp3', name: 'Плато динозавров Койтендаг', region: 'Лебапский велаят', x: 800, y: 270, hint: 'Следы динозавров мелового периода' },
+];
+
+const REGION_COLORS = {
+  'Ашхабад': '#D4A847',
+  'Ахалский велаят': '#6BA3BE',
+  'Марыйский велаят': '#C4633A',
+  'Балканский велаят': '#7B9E6B',
+  'Дашогузский велаят': '#A07BCE',
+  'Лебапский велаят': '#BE8B6B',
+};
+
+let selectedRoute = []; // array of attraction ids in order
+
+const svg = document.getElementById('map-svg');
+const markersGroup = document.getElementById('markersGroup');
+const routePath = document.getElementById('routePath');
+const tooltip = document.getElementById('tooltip');
+const routeList = document.getElementById('routeList');
+const routeEmpty = document.getElementById('routeEmpty');
+const countStat = document.getElementById('countStat');
+const regionStat = document.getElementById('regionStat');
+const btnBook = document.getElementById('btnBook');
+const btnClear = document.getElementById('btnClear');
+const mapArea = document.getElementById('mapArea');
+
+// Render all markers
+function renderMarkers() {
+  markersGroup.innerHTML = '';
+  ATTRACTIONS.forEach(a => {
+    const isSelected = selectedRoute.includes(a.id);
+    const order = selectedRoute.indexOf(a.id) + 1;
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'attraction-group');
+    g.setAttribute('data-id', a.id);
+    g.style.cursor = 'pointer';
+
+    // Pulse ring (only if selected)
+    if (isSelected) {
+      const pulse = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      pulse.setAttribute('cx', a.x);
+      pulse.setAttribute('cy', a.y);
+      pulse.setAttribute('r', '10');
+      pulse.setAttribute('class', 'pulse-ring');
+      g.appendChild(pulse);
+    }
+
+    // Main circle
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', a.x);
+    circle.setAttribute('cy', a.y);
+    circle.setAttribute('r', isSelected ? '9' : '7');
+    circle.setAttribute('class', 'marker-bg' + (isSelected ? ' active' : ''));
+    g.appendChild(circle);
+
+    // Number label if selected
+    if (isSelected) {
+      const num = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      num.setAttribute('x', a.x);
+      num.setAttribute('y', a.y);
+      num.setAttribute('class', 'step-label visible');
+      num.textContent = order;
+      g.appendChild(num);
+    }
+
+    // Events
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleAttraction(a.id);
+    });
+    g.addEventListener('mouseenter', (ev) => showTooltip(a, ev));
+    g.addEventListener('mouseleave', hideTooltip);
+    g.addEventListener('touchstart', (e) => { e.preventDefault(); toggleAttraction(a.id); }, { passive: false });
+
+    markersGroup.appendChild(g);
+  });
+}
+
+function toggleAttraction(id) {
+  const idx = selectedRoute.indexOf(id);
+  if (idx === -1) {
+    selectedRoute.push(id);
+  } else {
+    selectedRoute.splice(idx, 1);
+  }
+  renderMarkers();
+  updateRoute();
+  updatePanel();
+}
+
+function updateRoute() {
+  if (selectedRoute.length < 2) {
+    routePath.setAttribute('d', '');
+    return;
+  }
+  const points = selectedRoute.map(id => ATTRACTIONS.find(a => a.id === id));
+  let d = `M ${points[0].x},${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    // Smooth curve through control points
+    const prev = points[i - 1];
+    const curr = points[i];
+    const cpx = (prev.x + curr.x) / 2;
+    const cpy = (prev.y + curr.y) / 2 - 20;
+    d += ` Q ${cpx},${cpy} ${curr.x},${curr.y}`;
+  }
+
+  // Calculate approximate path length
+  const totalLen = selectedRoute.length * 200;
+  routePath.style.strokeDasharray = totalLen;
+  routePath.style.strokeDashoffset = totalLen;
+  routePath.setAttribute('d', d);
+
+  // Animate
+  routePath.classList.remove('animated');
+  void routePath.offsetWidth;
+  routePath.style.transition = 'stroke-dashoffset 0.9s ease';
+  routePath.style.strokeDashoffset = '0';
+}
+
+function updatePanel() {
+  const count = selectedRoute.length;
+  countStat.textContent = count;
+
+  const regions = new Set(selectedRoute.map(id => ATTRACTIONS.find(a => a.id === id).region));
+  regionStat.textContent = regions.size;
+
+  btnBook.disabled = count < 2;
+  btnClear.disabled = count === 0;
+
+  // Rebuild list
+  const items = routeList.querySelectorAll('.route-item, .route-connector');
+  items.forEach(el => el.remove());
+
+  if (count === 0) {
+    routeEmpty.style.display = 'flex';
+    return;
+  }
+  routeEmpty.style.display = 'none';
+
+  selectedRoute.forEach((id, i) => {
+    const a = ATTRACTIONS.find(at => at.id === id);
+    const color = REGION_COLORS[a.region] || '#D4A847';
+
+    const item = document.createElement('div');
+    item.className = 'route-item';
+    item.innerHTML = `
+      <div class="route-num" style="background:${color};">${i + 1}</div>
+      <div class="route-info">
+        <div class="route-name">${a.name}</div>
+        <div class="route-region" style="color:${color};">${a.region}</div>
+      </div>
+      <button class="route-remove" title="Удалить">✕</button>
+    `;
+    item.querySelector('.route-remove').addEventListener('click', () => toggleAttraction(id));
+    routeList.appendChild(item);
+
+    // Connector arrow
+    if (i < selectedRoute.length - 1) {
+      const conn = document.createElement('div');
+      conn.className = 'route-connector';
+      conn.innerHTML = `<div class="route-connector-line"></div><span>→</span>`;
+      routeList.appendChild(conn);
+    }
+  });
+}
+
+function showTooltip(a, ev) {
+  document.getElementById('ttRegion').textContent = a.region;
+  document.getElementById('ttName').textContent = a.name;
+  document.getElementById('ttHint').textContent = a.hint;
+
+  tooltip.style.display = 'block';
+  const svgRect = mapArea.getBoundingClientRect();
+  const svgEl = document.getElementById('map-svg');
+  const vb = svgEl.viewBox.baseVal;
+  const scaleX = svgRect.width / vb.width;
+  const scaleY = svgRect.height / vb.height;
+
+  const px = a.x * scaleX - tooltip.offsetWidth / 2;
+  const py = a.y * scaleY - tooltip.offsetHeight - 22;
+
+  tooltip.style.left = Math.max(4, Math.min(px, svgRect.width - 190)) + 'px';
+  tooltip.style.top = Math.max(4, py) + 'px';
+
+  tooltip.classList.add('visible');
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+btnClear.addEventListener('click', () => {
+  selectedRoute = [];
+  renderMarkers();
+  updateRoute();
+  updatePanel();
+});
+
+btnBook.addEventListener('click', () => {
+  const names = selectedRoute.map(id => ATTRACTIONS.find(a => a.id === id).name);
+  const ids = selectedRoute.join(',');
+  alert(`Маршрут готов!\n\nЛокации: ${names.join(' → ')}\n\nID для формы: ${ids}`);
+});
+
+// Init
+renderMarkers();
+updatePanel();
+</script>
+
+</body>
+</html>
