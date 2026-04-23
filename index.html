@@ -241,37 +241,70 @@ padding:2px 7px; border-radius:20px;
 min-width:20px; text-align:center;
 }
 
-/* sight list */
+/* ── SIGHT LIST ── */
 #sight-list{ list-style:none; }
 #sight-list li{
-display:flex; align-items:center; gap:10px;
-padding:10px 16px;
+display:flex; align-items:center; gap:12px;
+padding:11px 14px 11px 0;
+padding-left:0;
 cursor:pointer;
-border-bottom:1px solid #F0F6FC;
-transition:background .12s;
+border-bottom:1px solid #EEF4FB;
+border-left: 4px solid transparent;
+transition:background .15s, border-color .15s;
 position:relative;
 }
 #sight-list li:last-child{ border-bottom:none; }
-#sight-list li:hover{ background:#F0F6FC; }
-#sight-list li.active{ background:#EBF4FF; }
-.sl-emoji{ font-size:1.1rem; flex-shrink:0; }
+#sight-list li:hover:not(.active){ background:#F4F9FF; border-left-color:#B0CCF0; }
+
+/* ── ACTIVE: яркая левая полоса + цветной фон + жирный текст ── */
+#sight-list li.active{
+background: linear-gradient(90deg,#1565C0 0px,#1565C0 4px,#E8F1FF 4px,#F0F7FF 100%);
+border-left-color: #1565C0;
+padding-left:0;
+}
+#sight-list li.active .sl-name{ color:#0A3D62; font-weight:700; }
+#sight-list li.active .sl-region{ color:#1565C0; }
+
+/* emoji */
+.sl-emoji{
+font-size:1.25rem; flex-shrink:0; line-height:1;
+margin-left:14px;
+}
+
 .sl-info{ flex:1; min-width:0; }
-.sl-name{ font-size:.82rem; font-weight:600; color:var(–text-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.sl-region{ font-size:.7rem; color:var(–text-light); margin-top:1px; }
+.sl-name{
+font-size:.85rem; font-weight:600; color:var(–text-dark);
+white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+transition:color .15s;
+}
+.sl-region{ font-size:.7rem; color:var(–text-light); margin-top:1px; transition:color .15s; }
+
+/* Порядковый номер — круглый синий значок */
 .sl-badge{
-width:22px; height:22px; border-radius:50%;
-background:var(–sea-light); color:#fff;
-font-size:.68rem; font-weight:700;
+width:30px; height:30px; border-radius:50%;
+background:linear-gradient(135deg,#1565C0,#0D47A1);
+color:#fff;
+font-size:.85rem; font-weight:800;
 display:flex; align-items:center; justify-content:center;
-flex-shrink:0; opacity:0; transition:opacity .15s;
+flex-shrink:0;
+margin-right:10px;
+box-shadow:0 2px 10px rgba(21,101,192,0.45);
+opacity:0;
+transform:scale(0.4);
+transition:opacity .2s,transform .22s cubic-bezier(.34,1.56,.64,1);
 }
-#sight-list li.active .sl-badge{ opacity:1; }
+#sight-list li.active .sl-badge{
+opacity:1;
+transform:scale(1);
+}
+
+/* Серая точка в неактивном состоянии */
 .sl-dot{
-width:9px; height:9px; border-radius:50%;
-background:var(–border); flex-shrink:0;
-transition:background .15s;
+width:10px; height:10px; border-radius:50%;
+background:#CBD5E1; flex-shrink:0;
+border:1.5px solid #94A3B8;
+margin-right:10px;
 }
-#sight-list li.active .sl-dot{ background:var(–sea-light); }
 #sight-list li.active .sl-dot{ display:none; }
 #sight-list li:not(.active) .sl-badge{ display:none; }
 
@@ -3767,7 +3800,21 @@ const mapArea = document.getElementById("map-area");
 let scale = 1, tx = 0, ty = 0;
 let isPanning = false, panStart = null, panOrigin = null;
 
+function clampTransform() {
+  const rect = mapArea.getBoundingClientRect();
+  const mapW = SVG_W * scale;
+  const mapH = SVG_H * scale;
+  // Позволяем немного выйти за границу (8% viewport) — но не дальше
+  const slackX = rect.width  * 0.08;
+  const slackY = rect.height * 0.08;
+  tx = Math.min(tx,  slackX);
+  tx = Math.max(tx,  rect.width  - mapW - slackX);
+  ty = Math.min(ty,  slackY);
+  ty = Math.max(ty,  rect.height - mapH - slackY);
+}
+
 function applyTransform() {
+  clampTransform();
   wrapper.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
 }
 
