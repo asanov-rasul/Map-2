@@ -150,7 +150,7 @@ border-radius:var(--radius-sm);
 box-shadow:var(--shadow-lg);
 padding:0;
 min-width:200px;
-max-width:240px;
+max-width: min(240px, 90vw);
 pointer-events:none;
 opacity:0;
 transform:translateY(6px);
@@ -365,8 +365,8 @@ display:flex; align-items:center; justify-content:center; gap:6px;
     <div class="map-toolbar">
       <span class="map-title">🗺 Карта велаятов Туркменистана</span>
       <div class="map-zoom">
-        <button class="zoom-btn" onclick="zoomBy(1.25)" title="Увеличить">+</button>
-        <button class="zoom-btn" onclick="zoomBy(0.8)"  title="Уменьшить">−</button>
+        <button class="zoom-btn" onclick="zoomByCenter(1.25)" title="Увеличить">+</button>
+		<button class="zoom-btn" onclick="zoomByCenter(0.8)"  title="Уменьшить">−</button>
         <button class="zoom-btn" onclick="fitMap()"     title="Вписать" style="font-size:.75rem">⌂</button>
       </div>
     </div>
@@ -832,6 +832,11 @@ function zoomBy(factor, pivotX, pivotY) {
   applyTransform();
 }
 
+function zoomByCenter(factor) {
+  const rect = mapArea.getBoundingClientRect();
+  zoomBy(factor, rect.width / 2, rect.height / 2);
+}
+
 function fitMap() {
   const rect = mapArea.getBoundingClientRect();
   scale = Math.min(rect.width / SVG_W, rect.height / SVG_H) * 0.97;
@@ -1119,22 +1124,35 @@ function showTooltip(sight, e) {
   document.getElementById("tt-name").textContent    = sight.name;
   document.getElementById("tt-region").textContent  = sight.region;
 
-  const rect = mapArea.getBoundingClientRect();
-  // Convert SVG coords → screen
-  const sx = sight.sx * scale + tx;
-  const sy = sight.sy * scale + ty;
-  const areaW = rect.width, areaH = rect.height;
+  if (window.innerWidth <= 768) {
+    // Мобиле: по центру экрана снизу
+    tooltip.style.position = "fixed";
+    tooltip.style.left = "50%";
+    tooltip.style.top  = "auto";
+    tooltip.style.bottom = "80px";
+    tooltip.style.transform = "translateX(-50%)";
+  } else {
+    // Десктоп: рядом с маркером (оригинальная логика)
+    tooltip.style.position = "absolute";
+    tooltip.style.bottom = "";
+    tooltip.style.transform = "";
+    const rect = mapArea.getBoundingClientRect();
+    const sx = sight.sx * scale + tx;
+    const sy = sight.sy * scale + ty;
+    const areaW = rect.width, areaH = rect.height;
 
-  let left = sx + 14;
-  let top  = sy - 160;
-  if (left + 245 > areaW) left = sx - 255;
-  if (top < 0) top = sy + 20;
-  if (top + 190 > areaH) top = areaH - 195;
+    let left = sx + 14;
+    let top  = sy - 160;
+    if (left + 245 > areaW) left = sx - 255;
+    if (top < 0) top = sy + 20;
+    if (top + 190 > areaH) top = areaH - 195;
 
-  tooltip.style.left = left + "px";
-  tooltip.style.top  = top  + "px";
+    tooltip.style.left = left + "px";
+    tooltip.style.top  = top  + "px";
+  }
   tooltip.classList.add("visible");
 }
+	
 function hideTooltip() {
   ttTimeout = setTimeout(() => tooltip.classList.remove("visible"), 120);
 }
