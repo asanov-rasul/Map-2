@@ -1122,10 +1122,13 @@ function renderMarkers() {
     g.addEventListener("mouseleave", hideTooltip);
     g.addEventListener("touchstart", (e) => {
       e.stopPropagation();
+      const wasActive = selectedOrder.indexOf(sight.id) !== -1;
       toggleSight(sight.id);
-      // На мобиле показываем тултип при каждом тапе
-      if (window.innerWidth <= 768) {
+      // На мобиле показываем тултип только при активации
+      if (window.innerWidth <= 768 && !wasActive) {
         showTooltipMobile(sight);
+      } else if (window.innerWidth <= 768 && wasActive) {
+        hideTooltip();
       }
     }, {passive:true});
 
@@ -1216,7 +1219,6 @@ function showTooltipMobile(sight) {
   document.getElementById("tt-emoji").textContent  = sight.emoji;
   document.getElementById("tt-name").textContent   = sight.name;
   document.getElementById("tt-region").textContent = sight.region;
-  // Позиция задаётся CSS (fixed center), сбрасываем inline left/top
   tooltip.style.left = "";
   tooltip.style.top  = "";
   tooltip.classList.add("visible");
@@ -1230,13 +1232,22 @@ function hideTooltip() {
   }, 120);
 }
 
-// Клик/тап по оверлею или в любом месте экрана закрывает тултип на мобиле
+// Тап по оверлею закрывает тултип
 tooltipOverlay.addEventListener("touchstart", () => hideTooltip(), {passive:true});
 tooltipOverlay.addEventListener("click", () => hideTooltip());
 
 // Тап по пустому месту карты тоже закрывает
 mapArea.addEventListener("touchstart", (e) => {
   if (!e.target.closest("[data-marker]")) {
+    hideTooltip();
+  }
+}, {passive:true});
+
+// Тап в любом месте документа закрывает тултип на мобиле
+document.addEventListener("touchstart", (e) => {
+  if (window.innerWidth <= 768 &&
+      !e.target.closest("[data-marker]") &&
+      !e.target.closest("#tooltip")) {
     hideTooltip();
   }
 }, {passive:true});
