@@ -168,11 +168,12 @@ overflow:hidden;
     transform:translate(-50%,-54px) translateY(6px);
     min-width:260px;
     max-width:80vw;
-    pointer-events:auto;
+    pointer-events:none;  /* невидимый тултип не блокирует тапы */
     z-index:1000;
   }
   #tooltip.visible{
     transform:translate(-50%,-54px) translateY(0);
+    pointer-events:auto;  /* только видимый тултип принимает касания */
   }
   #tooltip-overlay{
     display:none;
