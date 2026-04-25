@@ -158,6 +158,31 @@ transition:opacity .18s,transform .18s;
 overflow:hidden;
 }
 #tooltip.visible{ opacity:1; transform:translateY(0); }
+
+/* На мобиле — фиксированный оверлей по центру экрана */
+@media(max-width:768px){
+  #tooltip{
+    position:fixed;
+    left:50% !important;
+    top:50% !important;
+    transform:translate(-50%,-54px) translateY(6px);
+    min-width:260px;
+    max-width:80vw;
+    pointer-events:auto;
+    z-index:1000;
+  }
+  #tooltip.visible{
+    transform:translate(-50%,-54px) translateY(0);
+  }
+  #tooltip-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.35);
+    z-index:999;
+  }
+  #tooltip-overlay.visible{ display:block; }
+}
 .tooltip-img{
 width:100%; height:110px;
 object-fit:cover;
@@ -689,6 +714,9 @@ display:flex; align-items:center; justify-content:center; gap:6px;
     </div>
 
 ```
+<!-- Mobile overlay backdrop -->
+<div id="tooltip-overlay"></div>
+
 <!-- Tooltip (hover) -->
 <div id="tooltip">
   <div class="tooltip-img-placeholder" id="tt-img-wrap">
@@ -1018,6 +1046,7 @@ function renderMarkers() {
 
     const g = document.createElementNS("http://www.w3.org/2000/svg","g");
     g.setAttribute("class","marker-hit");
+    g.setAttribute("data-marker","1");
     g.style.cursor = "pointer";
 
     // Pin shadow
@@ -1091,7 +1120,14 @@ function renderMarkers() {
     g.addEventListener("click", (e) => { e.stopPropagation(); toggleSight(sight.id); });
     g.addEventListener("mouseenter", (e) => showTooltip(sight, e));
     g.addEventListener("mouseleave", hideTooltip);
-    g.addEventListener("touchstart", (e) => { e.stopPropagation(); toggleSight(sight.id); }, {passive:true});
+    g.addEventListener("touchstart", (e) => {
+      e.stopPropagation();
+      toggleSight(sight.id);
+      // На мобиле показываем тултип при каждом тапе
+      if (window.innerWidth <= 768) {
+        showTooltipMobile(sight);
+      }
+    }, {passive:true});
 
     markersLayer.appendChild(g);
   });
@@ -1149,6 +1185,7 @@ function renderRoute() {
    TOOLTIP (hover)
 ══════════════════════════════════════ */
 const tooltip = document.getElementById("tooltip");
+const tooltipOverlay = document.getElementById("tooltip-overlay");
 let ttTimeout;
 
 function showTooltip(sight, e) {
@@ -1173,9 +1210,37 @@ function showTooltip(sight, e) {
   tooltip.style.top  = top  + "px";
   tooltip.classList.add("visible");
 }
-function hideTooltip() {
-  ttTimeout = setTimeout(() => tooltip.classList.remove("visible"), 120);
+
+function showTooltipMobile(sight) {
+  clearTimeout(ttTimeout);
+  document.getElementById("tt-emoji").textContent  = sight.emoji;
+  document.getElementById("tt-name").textContent   = sight.name;
+  document.getElementById("tt-region").textContent = sight.region;
+  // Позиция задаётся CSS (fixed center), сбрасываем inline left/top
+  tooltip.style.left = "";
+  tooltip.style.top  = "";
+  tooltip.classList.add("visible");
+  tooltipOverlay.classList.add("visible");
 }
+
+function hideTooltip() {
+  ttTimeout = setTimeout(() => {
+    tooltip.classList.remove("visible");
+    tooltipOverlay.classList.remove("visible");
+  }, 120);
+}
+
+// Клик/тап по оверлею или в любом месте экрана закрывает тултип на мобиле
+tooltipOverlay.addEventListener("touchstart", () => hideTooltip(), {passive:true});
+tooltipOverlay.addEventListener("click", () => hideTooltip());
+
+// Тап по пустому месту карты тоже закрывает
+mapArea.addEventListener("touchstart", (e) => {
+  if (!e.target.closest("[data-marker]")) {
+    hideTooltip();
+  }
+}, {passive:true});
+
 tooltip.addEventListener("mouseenter", () => clearTimeout(ttTimeout));
 tooltip.addEventListener("mouseleave", hideTooltip);
 
