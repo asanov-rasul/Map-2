@@ -951,6 +951,9 @@ function getTouchMidpoint(a, b, rect) {
 }
 
 mapArea.addEventListener("touchstart", e => {
+  // Если тап по маркеру — не перехватываем, даём маркеру обработать
+  if (e.target.closest("[data-marker]")) return;
+
   e.preventDefault(); // блокируем scroll и браузерный зум
 
   const rect = mapArea.getBoundingClientRect();
@@ -981,6 +984,7 @@ mapArea.addEventListener("touchstart", e => {
 }, { passive: false });
 
 mapArea.addEventListener("touchmove", e => {
+  // Если двигаем по маркеру — всё равно двигаем карту
   e.preventDefault();
 
   const rect = mapArea.getBoundingClientRect();
@@ -1016,8 +1020,6 @@ mapArea.addEventListener("touchmove", e => {
 }, { passive: false });
 
 mapArea.addEventListener("touchend", e => {
-  const rect = mapArea.getBoundingClientRect();
-
   if (e.touches.length === 0) {
     // Все пальцы убраны
     t1 = t2 = panOrig = pinchOrig = null;
@@ -1120,17 +1122,17 @@ function renderMarkers() {
     g.addEventListener("click", (e) => { e.stopPropagation(); toggleSight(sight.id); });
     g.addEventListener("mouseenter", (e) => showTooltip(sight, e));
     g.addEventListener("mouseleave", hideTooltip);
-    g.addEventListener("touchstart", (e) => {
+    g.addEventListener("touchend", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       const wasActive = selectedOrder.indexOf(sight.id) !== -1;
       toggleSight(sight.id);
-      // На мобиле показываем тултип только при активации
       if (window.innerWidth <= 768 && !wasActive) {
         showTooltipMobile(sight);
       } else if (window.innerWidth <= 768 && wasActive) {
         hideTooltip();
       }
-    }, {passive:true});
+    }, {passive:false});
 
     markersLayer.appendChild(g);
   });
