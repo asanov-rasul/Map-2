@@ -234,6 +234,14 @@ min-width:20px; text-align:center;
 
 /* ── SIGHT LIST ── */
 #sight-list{ list-style:none; }
+#sight-list-wrap{
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#sight-list-wrap::-webkit-scrollbar{ width:4px; }
+#sight-list-wrap::-webkit-scrollbar-track{ background:transparent; }
+#sight-list-wrap::-webkit-scrollbar-thumb{ background:#B0CCF0; border-radius:4px; }
 #sight-list li{
 display:flex; align-items:center; gap:12px;
 padding:11px 14px 11px 0;
@@ -743,7 +751,9 @@ display:flex; align-items:center; justify-content:center; gap:6px;
     <span class="panel-title">Достопримечательности</span>
     <span class="panel-count" id="total-count">6</span>
   </div>
-  <ul id="sight-list"></ul>
+  <div id="sight-list-wrap">
+    <ul id="sight-list"></ul>
+  </div>
 </div>
 
 <!-- Велаяты - легенда -->
@@ -783,66 +793,136 @@ display:flex; align-items:center; justify-content:center; gap:6px;
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   DATA — 6 достопримечательностей
-   sx/sy — пиксели внутри SVG viewBox 0 0 1571.46 1080
-   Калибровка по кружкам городов из исходного SVG
+   DATA — достопримечательности по регионам
+   Координаты [lat, lng] → SVG пиксели sx/sy
+   ViewBox: 0 0 1571.46 1080
+   Калибровочные точки (из SVG):
+     Ашхабад  lat=37.958, lng=58.380  → sx=670,  sy=669
+     Дарваза  lat=40.252, lng=58.440  → sx=683,  sy=384
+     Мары     lat=37.593, lng=61.830  → sx=1026, sy=711
+     Туркменабат lat=39.083,lng=63.567→ sx=1196, sy=509
+     Дашогуз  lat=41.836, lng=59.967  → sx=831,  sy=171
+     Туркменбаши lat=40.008,lng=52.983→ sx=169,  sy=377
 ══════════════════════════════════════════════════════════ */
-const SIGHTS = [
+
+// Точное аффинное преобразование lat/lng → SVG px
+// Калибровано по 12 опорным точкам (кружки городов из SVG)
+// ViewBox: 0 0 1571.46 1080
+function latLngToSVG(lat, lng) {
+  const sx = 97.9441*lng + (-4.6943)*lat + (-4855.90);
+  const sy = 2.3891*lng  + (-131.4184)*lat + 5507.40;
+  return { sx, sy };
+}
+
+const REGIONS = [
   {
-    id: 0,
-    name: "Врата ада (Дарваза)",
-    emoji: "🔥",
-    region: "Дашогуз / Каракумы",
-    velayat: "Дашогуз",
-    sx: 683.8, sy: 383.7,          // ПРЯМО из SVG: кружок «Derveze»
-    desc: "Горящий газовый кратер в пустыне Каракумы. Горит с 1971 года."
+    name: 'Ашхабад',
+    sights: [
+      { name:'Монумент Нейтралитета',            emoji:'🗽', coords:[37.9607,58.3261], desc:'Символ нейтралитета Туркменистана, 75-метровый монумент с вращающейся фигурой Туркменбаши на вершине.' },
+      { name:'Монумент Независимости',           emoji:'🏛️', coords:[37.9450,58.3900], desc:'Величественный монумент в честь независимости Туркменистана, окружён фонтанами и парком.' },
+      { name:'Алем',                             emoji:'🎡', coords:[37.9550,58.3450], desc:'Крытое колесо обозрения — самое большое закрытое колесо обозрения в мире.' },
+      { name:'Национальный музей Туркменистана', emoji:'🏺', coords:[37.9480,58.3870], desc:'Крупнейший музей страны с богатой коллекцией артефактов от древности до наших дней.' },
+      { name:'Дворец бракосочетаний Багт кошги', emoji:'💒', coords:[37.9620,58.4010], desc:'Дворец в форме восьмиконечной звезды — один из самых необычных свадебных дворцов в мире.' },
+      { name:'Мечеть Эртогрул Газы',             emoji:'🕌', coords:[37.9580,58.3390], desc:'Красивая мечеть в османском стиле, подарок Турции туркменскому народу.' },
+      { name:'Парк Ашхабад',                     emoji:'🌳', coords:[37.9700,58.3600], desc:'Большой городской парк с аттракционами, фонтанами и зонами отдыха.' },
+      { name:'Ниса',                             emoji:'🏯', coords:[37.9667,58.1950], desc:'Столица Парфянского царства, объект ЮНЕСКО — руины древней крепости I в. до н.э.' },
+    ]
   },
   {
-    id: 1,
-    name: "Древний Мерв",
-    emoji: "🏛️",
-    region: "Велаят Мары",
-    velayat: "Мары",
-    sx: 1026.4, sy: 710.6,         // ПРЯМО из SVG: кружок «Mary»
-    desc: "Древнейший город на Шёлковом пути, объект ЮНЕСКО."
+    name: 'Ахалский велаят',
+    sights: [
+      { name:'Дарваза (Врата ада)',              emoji:'🔥', coords:[40.2525,58.4396], desc:'Кратер горящего природного газа в пустыне Каракумы, горит с 1971 года.' },
+      { name:'Подземное озеро Ков-Ата',          emoji:'💧', coords:[38.2180,57.8520], desc:'Уникальное подземное серное озеро в пещере, популярное место для купания.' },
+      { name:'Мечеть Туркменбаши Рухы',          emoji:'🕌', coords:[38.0178,58.2528], desc:'Одна из крупнейших мечетей Центральной Азии, вмещает до 10 000 человек.' },
+      { name:'Конный комплекс Ахалтекинец',      emoji:'🐎', coords:[37.9900,58.4200], desc:'Комплекс, посвящённый легендарной породе ахалтекинских лошадей — национального символа Туркменистана.' },
+    ]
   },
   {
-    id: 2,
-    name: "Куня-Ургенч",
-    emoji: "🕌",
-    region: "Велаят Дашогуз",
-    velayat: "Дашогуз",
-    sx: 758.7, sy: 109.0,          // ПРЯМО из SVG: кружок «Köneürgenç»
-    desc: "Руины средневековой столицы Хорезма, объект ЮНЕСКО."
+    name: 'Марыйский велаят',
+    sights: [
+      { name:'Древний Мерв',                     emoji:'🏛️', coords:[37.6628,62.1925], desc:'Один из древнейших городов мира на Великом шёлковом пути, объект ЮНЕСКО.' },
+      { name:'Мавзолей Султана Санджара',        emoji:'🕌', coords:[37.6650,62.1870], desc:'Величественный мавзолей XII века — жемчужина сельджукской архитектуры, объект ЮНЕСКО.' },
+      { name:'Гяур-Кала',                        emoji:'🏚️', coords:[37.6900,62.1500], desc:'Руины древнего парфянского города, входят в комплекс Древнего Мерва.' },
+    ]
   },
   {
-    id: 3,
-    name: "Парфянские крепости Ниса",
-    emoji: "🏯",
-    region: "Велаят Ахал",
-    velayat: "Ахал",
-    sx: 649.0, sy: 667.0,          // ~18 км западнее Ашхабада
-    desc: "Столица Парфянского царства II–I вв. до н.э., объект ЮНЕСКО."
+    name: 'Балканский велаят',
+    sights: [
+      { name:'Янгыкала',                         emoji:'🏜️', coords:[40.6322,54.9267], desc:'Цветные каньоны и скалы — «огненная крепость» Туркменистана, поражающая закатными красками.' },
+      { name:'Каньон Янгысув',                   emoji:'🌊', coords:[40.5500,54.8000], desc:'Живописный каньон с рекой среди красных скал Балканского велаята.' },
+      { name:'Аваза',                            emoji:'🏖️', coords:[40.0167,52.9833], desc:'Национальная туристическая зона на берегу Каспийского моря с современными отелями.' },
+      { name:'Гозли-Ата',                        emoji:'⛪', coords:[40.1500,54.2000], desc:'Средневековый некрополь с мавзолеями, священное место паломничества туркменского народа.' },
+    ]
   },
   {
-    id: 4,
-    name: "Каньон Янгыкала",
-    emoji: "🏜️",
-    region: "Велаят Балкан",
-    velayat: "Балкан",
-    sx: 321.0, sy: 263.0,          // Северо-западный Балкан
-    desc: "Многоцветные скальные каньоны — «Огненная крепость» Туркменистана."
+    name: 'Дашогузский велаят',
+    sights: [
+      { name:'Куня-Ургенч',                      emoji:'🕌', coords:[42.3277,59.1544], desc:'Руины древней столицы Хорезма с мавзолеями и минаретом XI–XIV вв., объект ЮНЕСКО.' },
+      { name:'Минарет Кутлуг-Тимура',            emoji:'🗼', coords:[42.3220,59.1530], desc:'Самый высокий средневековый минарет Центральной Азии (60 м), XIV век.' },
+      { name:'Мавзолей Тюрабек-ханым',           emoji:'🏛️', coords:[42.3240,59.1490], desc:'Шедевр средневековой архитектуры XIV века с уникальной мозаичной отделкой купола.' },
+    ]
   },
   {
-    id: 5,
-    name: "Мечеть Туркменбаши Рухы",
-    emoji: "🕌",
-    region: "Гыпджак, Ахал",
-    velayat: "Ахал",
-    sx: 656.0, sy: 660.0,          // ~12 км СЗ Ашхабада
-    desc: "Одна из крупнейших мечетей Центральной Азии. Вмещает 10 000 человек."
-  }
+    name: 'Лебапский велаят',
+    sights: [
+      { name:'Древний Амуль',                    emoji:'🏛️', coords:[39.1000,63.5500], desc:'Руины одного из древнейших городов Средней Азии на берегу Амударьи.' },
+      { name:'Пещера Койтендаг',                 emoji:'🦇', coords:[37.7500,66.5000], desc:'Карстовая пещера с подземными озёрами и уникальными сталактитами в горах Койтендага.' },
+      { name:'Плато динозавров Койтендаг',       emoji:'🦕', coords:[37.8000,66.4500], desc:'Плато с сотнями отпечатков следов динозавров юрского периода — уникальный природный памятник.' },
+    ]
+  },
 ];
+
+// Собираем плоский массив SIGHTS с id и SVG-координатами
+const SIGHTS = [];
+let _id = 0;
+REGIONS.forEach(region => {
+  region.sights.forEach(s => {
+    const { sx, sy } = latLngToSVG(s.coords[0], s.coords[1]);
+    SIGHTS.push({
+      id: _id++,
+      name: s.name,
+      emoji: s.emoji,
+      region: region.name,
+      desc: s.desc,
+      sx, sy,
+      // оригинальные координаты (до разлёта)
+      ox: sx, oy: sy
+    });
+  });
+});
+
+/* ══════════════════════════════════════════════════════════
+   COLLISION RESOLUTION — разлёт маркеров при наложении
+   R = радиус pin-головки (18) + зазор (2) = 20 → диаметр 40
+   Итерационный алгоритм: толкаем перекрывающиеся пары
+══════════════════════════════════════════════════════════ */
+(function resolveCollisions() {
+  const MIN_DIST = 42; // минимальное расстояние между центрами
+  const MAX_ITER = 80;
+  const DAMPING  = 0.5;
+
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    let moved = false;
+    for (let i = 0; i < SIGHTS.length; i++) {
+      for (let j = i + 1; j < SIGHTS.length; j++) {
+        const a = SIGHTS[i], b = SIGHTS[j];
+        const dx = b.sx - a.sx;
+        const dy = b.sy - a.sy;
+        const dist = Math.sqrt(dx*dx + dy*dy) || 0.001;
+        if (dist < MIN_DIST) {
+          const overlap = (MIN_DIST - dist) / 2 * DAMPING;
+          const nx = dx / dist, ny = dy / dist;
+          a.sx -= nx * overlap;
+          a.sy -= ny * overlap;
+          b.sx += nx * overlap;
+          b.sy += ny * overlap;
+          moved = true;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+})();
 
 /* ══════════════════════════════════════
    STATE
@@ -1045,79 +1125,67 @@ function renderMarkers() {
     const oi = selectedOrder.indexOf(sight.id);
     const active = oi !== -1;
     const cx = sight.sx, cy = sight.sy;
-    const R = 18; // pin head radius
+    const R = 14; // pin head radius (меньше чем раньше)
 
     const g = document.createElementNS("http://www.w3.org/2000/svg","g");
     g.setAttribute("class","marker-hit");
     g.setAttribute("data-marker","1");
     g.style.cursor = "pointer";
 
-    // Pin shadow
-    const shadow = document.createElementNS("http://www.w3.org/2000/svg","ellipse");
-    shadow.setAttribute("cx", cx); shadow.setAttribute("cy", cy+3);
-    shadow.setAttribute("rx","9"); shadow.setAttribute("ry","4");
-    shadow.setAttribute("fill","rgba(0,0,0,0.18)");
+    // Линия от разлетевшего маркера к оригинальной позиции (если сдвинут)
+    const dx = sight.ox - cx, dy = sight.oy - cy;
+    if (Math.sqrt(dx*dx + dy*dy) > 3) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("x1", cx); line.setAttribute("y1", cy);
+      line.setAttribute("x2", sight.ox); line.setAttribute("y2", sight.oy);
+      line.setAttribute("stroke", active ? "#1565C0" : "#94A3B8");
+      line.setAttribute("stroke-width","1");
+      line.setAttribute("stroke-dasharray","3,2");
+      line.setAttribute("pointer-events","none");
+      g.appendChild(line);
+    }
 
-    // Pin body (teardrop: circle + triangle)
+    // Pin shadow — под кружком (circle находится в cy-R)
+    const shadow = document.createElementNS("http://www.w3.org/2000/svg","ellipse");
+    shadow.setAttribute("cx", cx); shadow.setAttribute("cy", cy-R*2+2);
+    shadow.setAttribute("rx","10"); shadow.setAttribute("ry","4");
+    shadow.setAttribute("fill","rgba(0,0,0,0.15)");
+    shadow.setAttribute("pointer-events","none");
+
+    // Pin body
     const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
     circle.setAttribute("cx", cx); circle.setAttribute("cy", cy-R);
     circle.setAttribute("r", String(R));
     circle.setAttribute("fill", active ? "#1565C0" : "#FFFFFF");
     circle.setAttribute("stroke", active ? "#0A3D62" : "#1565C0");
-    circle.setAttribute("stroke-width","2.5");
+    circle.setAttribute("stroke-width","2");
     if (active) circle.setAttribute("filter","url(#ds-active)");
     else        circle.setAttribute("filter","url(#ds)");
 
-    // Pin tail
+    // Pin tail — кончик указывает на оригинальную точку достопримечательности
     const tail = document.createElementNS("http://www.w3.org/2000/svg","polygon");
-    const tx2 = cx, ty2 = cy+3;
-    tail.setAttribute("points",`${cx-7},${cy-R+8} ${cx+7},${cy-R+8} ${tx2},${ty2}`);
+    tail.setAttribute("points",`${cx-6},${cy-R+6} ${cx+6},${cy-R+6} ${sight.ox},${sight.oy}`);
     tail.setAttribute("fill", active ? "#1565C0" : "#FFFFFF");
     tail.setAttribute("stroke", active ? "#0A3D62" : "#1565C0");
-    tail.setAttribute("stroke-width","2");
+    tail.setAttribute("stroke-width","1.5");
     tail.setAttribute("stroke-linejoin","round");
+    tail.setAttribute("pointer-events","none");
 
     // Inner content: emoji or order number
     const label = document.createElementNS("http://www.w3.org/2000/svg","text");
     label.setAttribute("x", cx); label.setAttribute("y", cy-R+1);
     label.setAttribute("text-anchor","middle"); label.setAttribute("dominant-baseline","middle");
-    label.setAttribute("font-size", active ? "14" : "16");
+    label.setAttribute("font-size", active ? "11" : "13");
     label.setAttribute("fill", active ? "#FFFFFF" : "#1565C0");
     label.setAttribute("font-weight","700");
     label.setAttribute("font-family","system-ui,sans-serif");
     label.setAttribute("pointer-events","none");
     label.textContent = active ? String(oi+1) : sight.emoji;
 
-    // Name tag below pin
-    const tagW = sight.name.length * 6.8 + 20;
-    const tagX = cx - tagW/2;
-    const tagY = cy + 8;
-
-    const tagBg = document.createElementNS("http://www.w3.org/2000/svg","rect");
-    tagBg.setAttribute("x", tagX); tagBg.setAttribute("y", tagY);
-    tagBg.setAttribute("width", String(tagW)); tagBg.setAttribute("height","18");
-    tagBg.setAttribute("rx","5");
-    tagBg.setAttribute("fill", active ? "rgba(21,101,192,0.92)" : "rgba(255,255,255,0.92)");
-    tagBg.setAttribute("stroke", active ? "#0A3D62" : "#1565C0");
-    tagBg.setAttribute("stroke-width","1");
-    tagBg.setAttribute("pointer-events","none");
-
-    const tagText = document.createElementNS("http://www.w3.org/2000/svg","text");
-    tagText.setAttribute("x", cx); tagText.setAttribute("y", tagY+13);
-    tagText.setAttribute("text-anchor","middle");
-    tagText.setAttribute("font-size","10");
-    tagText.setAttribute("fill", active ? "#FFFFFF" : "#0A3D62");
-    tagText.setAttribute("font-family","system-ui,sans-serif");
-    tagText.setAttribute("font-weight","600");
-    tagText.setAttribute("pointer-events","none");
-    tagText.textContent = sight.name;
-
     g.appendChild(shadow);
     g.appendChild(tail);
     g.appendChild(circle);
     g.appendChild(label);
-    g.appendChild(tagBg);
-    g.appendChild(tagText);
 
     // Events
     g.addEventListener("click", (e) => { e.stopPropagation(); toggleSight(sight.id); });
@@ -1146,12 +1214,12 @@ function renderRoute() {
   routeLayer.innerHTML = "";
   if (selectedOrder.length < 2) return;
 
-  const pts = selectedOrder.map(id => `${SIGHTS[id].sx},${SIGHTS[id].sy}`).join(" ");
+  const pts = selectedOrder.map(id => `${SIGHTS[id].ox},${SIGHTS[id].oy}`).join(" ");
   const totalLen = selectedOrder.reduce((sum, id, i) => {
     if (i === 0) return 0;
     const prev = SIGHTS[selectedOrder[i-1]];
     const cur  = SIGHTS[id];
-    return sum + Math.hypot(cur.sx - prev.sx, cur.sy - prev.sy);
+    return sum + Math.hypot(cur.ox - prev.ox, cur.oy - prev.oy);
   }, 0);
 
   const line = document.createElementNS("http://www.w3.org/2000/svg","polyline");
@@ -1177,8 +1245,8 @@ function renderRoute() {
     if (i === 0) return;
     const p1 = SIGHTS[selectedOrder[i-1]];
     const p2 = SIGHTS[id];
-    const mx = (p1.sx+p2.sx)/2, my = (p1.sy+p2.sy)/2;
-    const angle = Math.atan2(p2.sy-p1.sy, p2.sx-p1.sx) * 180/Math.PI;
+    const mx = (p1.ox+p2.ox)/2, my = (p1.oy+p2.oy)/2;
+    const angle = Math.atan2(p2.oy-p1.oy, p2.ox-p1.ox) * 180/Math.PI;
     const arr = document.createElementNS("http://www.w3.org/2000/svg","polygon");
     arr.setAttribute("points","0,-6 12,0 0,6");
     arr.setAttribute("fill","#E53935");
@@ -1259,23 +1327,35 @@ tooltip.addEventListener("mouseenter", () => clearTimeout(ttTimeout));
 tooltip.addEventListener("mouseleave", hideTooltip);
 
 /* ══════════════════════════════════════
-   SIDEBAR SIGHT LIST
+   SIDEBAR SIGHT LIST (сгруппированный)
 ══════════════════════════════════════ */
 const sightListEl = document.getElementById("sight-list");
+document.getElementById("total-count").textContent = String(SIGHTS.length);
 
-SIGHTS.forEach(sight => {
-  const li = document.createElement("li");
-  li.id = `sl-${sight.id}`;
-  li.innerHTML = `
-    <span class="sl-emoji">${sight.emoji}</span>
-    <div class="sl-info">
-      <div class="sl-name">${sight.name}</div>
-      <div class="sl-region">${sight.region}</div>
-    </div>
-    <span class="sl-dot" id="sldot-${sight.id}"></span>
-    <span class="sl-badge" id="slbadge-${sight.id}"></span>`;
-  li.addEventListener("click", () => { toggleSight(sight.id); });
-  sightListEl.appendChild(li);
+REGIONS.forEach(region => {
+  // Заголовок региона
+  const regionLi = document.createElement("li");
+  regionLi.style.cssText = "background:#EEF4FB;padding:5px 14px;font-size:.7rem;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.08em;cursor:default;border-bottom:1px solid #D0E4F7;";
+  regionLi.textContent = region.name;
+  sightListEl.appendChild(regionLi);
+
+  // Достопримечательности региона
+  region.sights.forEach(s => {
+    const sight = SIGHTS.find(x => x.name === s.name);
+    if (!sight) return;
+    const li = document.createElement("li");
+    li.id = `sl-${sight.id}`;
+    li.innerHTML = `
+      <span class="sl-emoji">${sight.emoji}</span>
+      <div class="sl-info">
+        <div class="sl-name">${sight.name}</div>
+        <div class="sl-region">${sight.region}</div>
+      </div>
+      <span class="sl-dot" id="sldot-${sight.id}"></span>
+      <span class="sl-badge" id="slbadge-${sight.id}"></span>`;
+    li.addEventListener("click", () => { toggleSight(sight.id); });
+    sightListEl.appendChild(li);
+  });
 });
 
 /* ══════════════════════════════════════
