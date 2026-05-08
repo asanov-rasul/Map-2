@@ -1214,16 +1214,14 @@ function renderMarkers() {
     g.addEventListener("mouseenter", (e) => showTooltip(sight, e));
     g.addEventListener("mouseleave", hideTooltip);
     g.addEventListener("touchend", (e) => {
-	  e.preventDefault();
+  	e.preventDefault();
 	  e.stopPropagation();
-	
-	  // Проверяем до toggleSight — был ли уже активен
 	  const wasActive = selectedOrder.indexOf(sight.id) !== -1;
 	  toggleSight(sight.id);
-	
-	  if (window.innerWidth <= 768) {
-	    // Показываем попап всегда — и при добавлении и при повторном тапе
+	  if (window.innerWidth <= 768 && !wasActive) {
 	    showTooltipMobile(sight);
+	  } else if (window.innerWidth <= 768 && wasActive) {
+	    hideTooltip();
 	  }
 	}, {passive:false});
 
