@@ -1262,12 +1262,9 @@ let ttTimeout;
 
 function showTooltip(sight, e) {
   clearTimeout(ttTimeout);
-  document.getElementById("tt-emoji").textContent   = sight.emoji;
-  document.getElementById("tt-name").textContent    = sight.name;
-  document.getElementById("tt-region").textContent  = sight.region;
+  setTooltipContent(sight);
 
   const rect = mapArea.getBoundingClientRect();
-  // Convert SVG coords → screen
   const sx = sight.sx * scale + tx;
   const sy = sight.sy * scale + ty;
   const areaW = rect.width, areaH = rect.height;
@@ -1283,11 +1280,20 @@ function showTooltip(sight, e) {
   tooltip.classList.add("visible");
 }
 
-function showTooltipMobile(sight) {
-  clearTimeout(ttTimeout);
-  document.getElementById("tt-emoji").textContent  = sight.emoji;
+function setTooltipContent(sight) {
   document.getElementById("tt-name").textContent   = sight.name;
   document.getElementById("tt-region").textContent = sight.region;
+
+  const wrap = document.getElementById("tt-img-wrap");
+  const src  = `photos/${encodeURIComponent(sight.name)}.webp`;
+  wrap.innerHTML = `<img class="tooltip-img" src="${src}" alt="${sight.name}"
+    onerror="this.parentElement.innerHTML='<span style=\\'font-size:2.5rem\\'>${sight.emoji}</span>'"
+    loading="lazy">`;
+}
+
+function showTooltipMobile(sight) {
+  clearTimeout(ttTimeout);
+  setTooltipContent(sight);
   tooltip.style.left = "";
   tooltip.style.top  = "";
   tooltip.classList.add("visible");
