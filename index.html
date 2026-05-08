@@ -197,8 +197,8 @@ user-select:none;
 .tooltip-img{
   width:100%;
   height:auto;
-  max-height:380px;
-  object-fit:contain;
+  max-height:600px;
+  object-fit:cover;
   display:block;
 }
 
@@ -1214,16 +1214,18 @@ function renderMarkers() {
     g.addEventListener("mouseenter", (e) => showTooltip(sight, e));
     g.addEventListener("mouseleave", hideTooltip);
     g.addEventListener("touchend", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const wasActive = selectedOrder.indexOf(sight.id) !== -1;
-      toggleSight(sight.id);
-      if (window.innerWidth <= 768 && !wasActive) {
-        showTooltipMobile(sight);
-      } else if (window.innerWidth <= 768 && wasActive) {
-        hideTooltip();
-      }
-    }, {passive:false});
+	  e.preventDefault();
+	  e.stopPropagation();
+	
+	  // Проверяем до toggleSight — был ли уже активен
+	  const wasActive = selectedOrder.indexOf(sight.id) !== -1;
+	  toggleSight(sight.id);
+	
+	  if (window.innerWidth <= 768) {
+	    // Показываем попап всегда — и при добавлении и при повторном тапе
+	    showTooltipMobile(sight);
+	  }
+	}, {passive:false});
 
     markersLayer.appendChild(g);
   });
