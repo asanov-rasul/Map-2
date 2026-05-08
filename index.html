@@ -164,24 +164,18 @@ user-select:none;
     position:fixed;
     left:50% !important;
     top:50% !important;
-    transform:translate(-50%,-54px) translateY(6px);
-    width:280px;
-    max-width:85vw;
+    transform:translate(-50%, -50%) translateY(6px);
+    width:85vw;
+    max-width:340px;
+    max-height:85vh;
+    overflow-y:auto;
     pointer-events:none;
     z-index:1000;
   }
   #tooltip.visible{
-    transform:translate(-50%,-54px) translateY(0);
+    transform:translate(-50%, -50%) translateY(0);
     pointer-events:auto;
   }
-  #tooltip-overlay{
-    display:none;
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,0.35);
-    z-index:999;
-  }
-  #tooltip-overlay.visible{ display:block; }
 }
 
 #tt-img-wrap{
